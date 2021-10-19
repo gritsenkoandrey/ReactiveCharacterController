@@ -23,9 +23,9 @@ public sealed class PlayerInput
     private const KeyCode MinusDepth = KeyCode.Q;
     private const KeyCode Run = KeyCode.LeftShift;
 
-    public PlayerInput(float speed, float sensitivity, float depth, float speedRun)
+    public PlayerInput(float speedWalk, float speedRun, float sensitivity, float depth)
     {
-        this.speed.Value = speed;
+        this.speed.Value = speedWalk;
         this.depth.Value = depth;
 
         isEnable
@@ -34,7 +34,7 @@ public sealed class PlayerInput
             {
                 Observable
                     .EveryUpdate()
-                    .Subscribe(_ => UpdateInput(sensitivity, speedRun))
+                    .Subscribe(_ => UpdateInput(speedWalk, speedRun, sensitivity))
                     .AddTo(_updateInputDisposable);
             })
             .AddTo(lifetimeDisposable);
@@ -45,17 +45,17 @@ public sealed class PlayerInput
             .AddTo(lifetimeDisposable);
     }
     
-    private void UpdateInput(float sensitivity, float speedRun)
+    private void UpdateInput(float speedWalk, float speedRun, float sensitivity)
     {
         vertical.SetValueAndForceNotify(Input.GetAxis("Vertical") * speed.Value);
         horizontal.SetValueAndForceNotify(Input.GetAxis("Horizontal") * speed.Value);
         mouseX.SetValueAndForceNotify(Input.GetAxis("Mouse X") * sensitivity);
         mouseY.SetValueAndForceNotify(Input.GetAxis("Mouse Y") * sensitivity);
 
-        if (Input.GetKeyDown(PlusDepth)) depth.Value += 1f;
-        if (Input.GetKeyDown(MinusDepth)) depth.Value -= 1f;
-        if (Input.GetKeyDown(Run)) speed.Value += speedRun;
-        if (Input.GetKeyUp(Run)) speed.Value -= speedRun;
+        if (Input.GetKeyDown(PlusDepth)) depth.Value += 0.5f;
+        if (Input.GetKeyDown(MinusDepth)) depth.Value -= 0.5f;
+        if (Input.GetKeyDown(Run)) speed.SetValueAndForceNotify(speedRun);
+        if (Input.GetKeyUp(Run)) speed.SetValueAndForceNotify(speedWalk);
 
         move.Execute();
         rotate.Execute();

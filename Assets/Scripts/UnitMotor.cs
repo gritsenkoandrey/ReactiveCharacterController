@@ -5,34 +5,36 @@ using UnityEngine.UI;
 [RequireComponent(typeof(CharacterController))]
 public sealed class UnitMotor : MonoBehaviour
 {
+    private const float Depth = 1.2f;
+    
     [SerializeField] private CharacterController _characterController;
     [SerializeField] private Transform _cameraTransform;
     [Space]
     [SerializeField] private Text _depthText;
     [Space]
-    [SerializeField] private float _walkSpeed = 5f;
-    [SerializeField] private float _runSpeed = 10f;
+    [SerializeField] private float _speedWalk = 5f;
+    [SerializeField] private float _speedRun = 10f;
     [Space]
     [SerializeField] private float _sensitivity = 5f;
     [Space]
     [SerializeField] private float _gravity = -9.8f;
-    [SerializeField] private float _depth = -1f;
     [SerializeField] private float _angle = 90f;
     [SerializeField] private float _rayDistance = 10f;
 
-    private PlayerInput _input;
-    
+    private Vector3 _velocity;
+    private float _xRotation;
     private int _layerGround;
-    private float _xRotation = 0f;
+    
+    private PlayerInput _input;
 
     private void Awake()
     {
-        _input = new PlayerInput(_walkSpeed, _sensitivity, _depth, _runSpeed);
+        _input = new PlayerInput(_speedWalk, _speedRun, _sensitivity, Depth);
+        _layerGround = LayerMask.NameToLayer("Ground");
     }
 
     private void Start()
     {
-        _layerGround = LayerMask.NameToLayer("Ground");
         _input.isEnable.Value = true;
     }
 
@@ -42,11 +44,9 @@ public sealed class UnitMotor : MonoBehaviour
             .Subscribe(_ =>
             {
                 Vector3 movement = new Vector3(_input.horizontal.Value, 0f, _input.vertical.Value);
-                movement = Vector3.ClampMagnitude(movement, _input.speed.Value);
-                movement.y = _gravity;
                 movement = transform.TransformDirection(movement);
-
-                Vector3 next = transform.position.Add(movement.normalized);
+                _velocity.y += _gravity * Time.deltaTime;
+                Vector3 next = transform.position.Add(movement * Time.deltaTime);
                 
                 //Debug.DrawRay(next, Vector3.down, Color.red);
 
@@ -54,13 +54,16 @@ public sealed class UnitMotor : MonoBehaviour
 
                 if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, 1 << _layerGround))
                 {
-                    if (transform.position.y + hit.point.y < _input.depth.Value)
+                    float nextPosY = transform.position.y + hit.point.y;
+
+                    if (nextPosY < _input.depth.Value)
                     {
                         return;
                     }
                 }
 
                 _characterController.Move(movement * Time.deltaTime);
+                _characterController.Move(_velocity * Time.deltaTime);
             })
             .AddTo(this)
             .AddTo(_input.lifetimeDisposable);
@@ -77,7 +80,7 @@ public sealed class UnitMotor : MonoBehaviour
             .AddTo(_input.lifetimeDisposable);
 
         _input.depth
-            .Subscribe(value => _depthText.text = $"Depth: {value}")
+            .Subscribe(value => _depthText.text = $"Depth: {value - Depth}")
             .AddTo(this)
             .AddTo(_input.lifetimeDisposable);
     }

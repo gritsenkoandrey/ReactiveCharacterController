@@ -293,7 +293,7 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 100
+    m_FontSize: 86
     m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 0
@@ -860,11 +860,10 @@ MonoBehaviour:
   _characterController: {fileID: 1243082100}
   _cameraTransform: {fileID: 963194228}
   _depthText: {fileID: 578070728}
-  _walkSpeed: 5
-  _runSpeed: 20
+  _speedWalk: 5
+  _speedRun: 20
   _sensitivity: 5
   _gravity: -9.8
-  _depth: 1
   _angle: 90
   _rayDistance: 10
 --- !u!23 &1243082102
