@@ -14,23 +14,21 @@ public sealed class UnitMotor : MonoBehaviour
     [Space]
     [SerializeField] private float _speedWalk = 5f;
     [SerializeField] private float _speedRun = 10f;
-    [Space]
     [SerializeField] private float _sensitivity = 5f;
-    [Space]
-    [SerializeField] private float _gravity = -9.8f;
+    [SerializeField] private float _gravity = 9.8f;
     [SerializeField] private float _angle = 90f;
     [SerializeField] private float _rayDistance = 10f;
+    [SerializeField] private float _changeDepth = 0.5f;
 
-    private Vector3 _velocity;
-    private float _xRotation;
     private int _layerGround;
     
     private PlayerInput _input;
 
     private void Awake()
     {
-        _input = new PlayerInput(_speedWalk, _speedRun, _sensitivity, Depth);
         _layerGround = LayerMask.NameToLayer("Ground");
+        
+        _input = new PlayerInput(_speedWalk, _speedRun, _sensitivity, _changeDepth);
     }
 
     private void Start()
@@ -40,13 +38,31 @@ public sealed class UnitMotor : MonoBehaviour
 
     private void OnEnable()
     {
-        _input.move
-            .Subscribe(_ =>
+        float gravityForce = default;
+        float xRotation = default;
+        float depth = default;
+        float speed = default;
+
+        Transform t = transform;
+
+        _input.onInputMove
+            .Where(vector => vector != Vector2.zero)
+            .Subscribe(value =>
             {
-                Vector3 movement = new Vector3(_input.horizontal.Value, 0f, _input.vertical.Value);
-                movement = transform.TransformDirection(movement);
-                _velocity.y += _gravity * Time.deltaTime;
-                Vector3 next = transform.position.Add(movement * Time.deltaTime);
+                Vector3 movement = t.forward * value.y * speed + t.right * value.x * speed;
+                
+                if (!_characterController.isGrounded)
+                {
+                    gravityForce -= _gravity * Time.deltaTime;
+                }
+                else
+                {
+                    gravityForce = -_gravity;
+                }
+
+                movement.y = gravityForce;
+
+                Vector3 next = t.position.Add(movement * Time.deltaTime);
                 
                 //Debug.DrawRay(next, Vector3.down, Color.red);
 
@@ -54,35 +70,65 @@ public sealed class UnitMotor : MonoBehaviour
 
                 if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, 1 << _layerGround))
                 {
-                    float nextPosY = transform.position.y + hit.point.y;
-
-                    if (nextPosY < _input.depth.Value)
+                    if (t.position.y + hit.point.y < depth)
                     {
                         return;
                     }
                 }
 
                 _characterController.Move(movement * Time.deltaTime);
-                _characterController.Move(_velocity * Time.deltaTime);
             })
-            .AddTo(this)
-            .AddTo(_input.lifetimeDisposable);
+            .AddTo(_input.lifetimeDisposable)
+            .AddTo(this);
 
-        _input.rotate
-            .Subscribe(_ =>
+        _input.onInputRotate
+            .Where(vector => vector != Vector2.zero)
+            .Subscribe(value =>
             {
-                _xRotation -= _input.mouseY.Value;
-                _xRotation = Mathf.Clamp(_xRotation, -_angle, _angle);
-                _cameraTransform.localRotation = Quaternion.Euler(_xRotation, 0f, 0f);
-                transform.Rotate(Vector3.up * _input.mouseX.Value);
+                xRotation -= value.y;
+                xRotation = Mathf.Clamp(xRotation, -_angle, _angle);
+                _cameraTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+                t.Rotate(Vector3.up * value.x);
             })
-            .AddTo(this)
-            .AddTo(_input.lifetimeDisposable);
+            .AddTo(_input.lifetimeDisposable)
+            .AddTo(this);
 
         _input.depth
-            .Subscribe(value => _depthText.text = $"Depth: {value - Depth}")
-            .AddTo(this)
-            .AddTo(_input.lifetimeDisposable);
+            .Subscribe(value =>
+            {
+                _depthText.text = $"Depth: {value:F}";
+
+                if (Mathf.Approximately(value, 0f))
+                {
+                    depth = Depth;
+                }
+                else
+                {
+                    if (value > 0f)
+                    {
+                        depth = Depth + value;
+                    }
+                    else
+                    {
+                        depth = value;
+                    }
+                }
+            })
+            .AddTo(_input.lifetimeDisposable)
+            .AddTo(this);
+
+        _input.speed
+            .Subscribe(value =>
+            {
+                if (value > _speedRun)
+                {
+                    value = _speedRun;
+                }
+                
+                speed = value;
+            })
+            .AddTo(_input.lifetimeDisposable)
+            .AddTo(this);
     }
 
     private void OnDisable()

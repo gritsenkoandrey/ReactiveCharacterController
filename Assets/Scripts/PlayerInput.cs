@@ -5,28 +5,24 @@ public sealed class PlayerInput
 {
     public readonly ReactiveProperty<bool> isEnable = new ReactiveProperty<bool>();
     
-    public readonly ReactiveCommand move = new ReactiveCommand();
-    public readonly ReactiveCommand rotate = new ReactiveCommand();
-    
-    public readonly ReactiveProperty<float> horizontal = new ReactiveProperty<float>();
-    public readonly ReactiveProperty<float> vertical = new ReactiveProperty<float>();
-    public readonly ReactiveProperty<float> mouseX = new ReactiveProperty<float>();
-    public readonly ReactiveProperty<float> mouseY = new ReactiveProperty<float>();
-    
+    public readonly ReactiveCommand<Vector2> onInputMove = new ReactiveCommand<Vector2>();
+    public readonly ReactiveCommand<Vector2> onInputRotate = new ReactiveCommand<Vector2>();
     public readonly ReactiveProperty<float> depth = new ReactiveProperty<float>();
     public readonly ReactiveProperty<float> speed = new ReactiveProperty<float>();
-
     public readonly CompositeDisposable lifetimeDisposable = new CompositeDisposable();
+    
+    private readonly ReactiveProperty<Vector2> _inputMove = new ReactiveProperty<Vector2>();
+    private readonly ReactiveProperty<Vector2> _inputRotate = new ReactiveProperty<Vector2>();
     private readonly CompositeDisposable _updateInputDisposable = new CompositeDisposable();
 
     private const KeyCode PlusDepth = KeyCode.E;
     private const KeyCode MinusDepth = KeyCode.Q;
     private const KeyCode Run = KeyCode.LeftShift;
 
-    public PlayerInput(float speedWalk, float speedRun, float sensitivity, float depth)
+    public PlayerInput(float walk, float run, float sensitivity, float changeDepth)
     {
-        this.speed.Value = speedWalk;
-        this.depth.Value = depth;
+        speed.Value = walk;
+        depth.Value = 0f;
 
         isEnable
             .Where(value => value)
@@ -34,8 +30,9 @@ public sealed class PlayerInput
             {
                 Observable
                     .EveryUpdate()
-                    .Subscribe(_ => UpdateInput(speedWalk, speedRun, sensitivity))
-                    .AddTo(_updateInputDisposable);
+                    .Subscribe(_ => UpdateInput(walk, run, sensitivity, changeDepth))
+                    .AddTo(_updateInputDisposable)
+                    .AddTo(lifetimeDisposable);
             })
             .AddTo(lifetimeDisposable);
 
@@ -45,19 +42,34 @@ public sealed class PlayerInput
             .AddTo(lifetimeDisposable);
     }
     
-    private void UpdateInput(float speedWalk, float speedRun, float sensitivity)
+    private void UpdateInput(float walk, float run, float sensitivity, float changeDepth)
     {
-        vertical.SetValueAndForceNotify(Input.GetAxis("Vertical") * speed.Value);
-        horizontal.SetValueAndForceNotify(Input.GetAxis("Horizontal") * speed.Value);
-        mouseX.SetValueAndForceNotify(Input.GetAxis("Mouse X") * sensitivity);
-        mouseY.SetValueAndForceNotify(Input.GetAxis("Mouse Y") * sensitivity);
+        _inputMove.SetValueAndForceNotify
+            (new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")));
+        _inputRotate.SetValueAndForceNotify
+            (new Vector2(Input.GetAxis("Mouse X") * sensitivity,Input.GetAxis("Mouse Y") * sensitivity));
 
-        if (Input.GetKeyDown(PlusDepth)) depth.Value += 0.5f;
-        if (Input.GetKeyDown(MinusDepth)) depth.Value -= 0.5f;
-        if (Input.GetKeyDown(Run)) speed.SetValueAndForceNotify(speedRun);
-        if (Input.GetKeyUp(Run)) speed.SetValueAndForceNotify(speedWalk);
+        if (Input.GetKeyDown(PlusDepth))
+        {
+            depth.Value += changeDepth;
+        }
 
-        move.Execute();
-        rotate.Execute();
+        if (Input.GetKeyDown(MinusDepth))
+        {
+            depth.Value -= changeDepth;
+        }
+
+        if (Input.GetKeyDown(Run))
+        {
+            speed.SetValueAndForceNotify(run);
+        }
+
+        if (Input.GetKeyUp(Run))
+        {
+            speed.SetValueAndForceNotify(walk);
+        }
+
+        onInputMove.Execute(_inputMove.Value);
+        onInputRotate.Execute(_inputRotate.Value);
     }
 }
