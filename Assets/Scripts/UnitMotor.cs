@@ -50,6 +50,16 @@ public sealed class UnitMotor : MonoBehaviour
             .Subscribe(value =>
             {
                 Vector3 movement = t.forward * value.y * speed + t.right * value.x * speed;
+                Vector3 next = t.position + movement * Time.deltaTime;
+                Ray ray = new Ray { origin = next, direction = Vector3.down };
+
+                if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, 1 << _layerGround))
+                {
+                    if (t.position.y + hit.point.y < depth)
+                    {
+                        return;
+                    }
+                }
                 
                 if (!_characterController.isGrounded)
                 {
@@ -61,21 +71,7 @@ public sealed class UnitMotor : MonoBehaviour
                 }
 
                 movement.y = gravityForce;
-
-                Vector3 next = t.position.Add(movement * Time.deltaTime);
                 
-                //Debug.DrawRay(next, Vector3.down, Color.red);
-
-                Ray ray = new Ray { origin = next, direction = Vector3.down };
-
-                if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, 1 << _layerGround))
-                {
-                    if (t.position.y + hit.point.y < depth)
-                    {
-                        return;
-                    }
-                }
-
                 _characterController.Move(movement * Time.deltaTime);
             })
             .AddTo(_input.lifetimeDisposable)
