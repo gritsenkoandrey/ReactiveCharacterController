@@ -94,7 +94,7 @@ public sealed class UnitMotor : MonoBehaviour
             {
                 _depthText.text = $"Depth: {value:F}";
 
-                if (Mathf.Approximately(value, 0f))
+                if (value < 0.05f && value > -0.05f)
                 {
                     depth = Depth;
                 }
@@ -109,6 +109,8 @@ public sealed class UnitMotor : MonoBehaviour
                         depth = value;
                     }
                 }
+                
+                Debug.Log(depth);
             })
             .AddTo(_input.lifetimeDisposable)
             .AddTo(this);
