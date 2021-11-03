@@ -5,29 +5,28 @@ using UnityEngine.UI;
 [RequireComponent(typeof(CharacterController))]
 public sealed class UnitMotor : MonoBehaviour
 {
-    private const float Depth = 1.2f;
-    
     [SerializeField] private CharacterController _characterController;
     [SerializeField] private Transform _cameraTransform;
     [Space]
     [SerializeField] private Text _depthText;
+    [SerializeField] private Transform _water;
     [Space]
     [SerializeField] private float _speedWalk = 5f;
     [SerializeField] private float _speedRun = 10f;
     [SerializeField] private float _sensitivity = 5f;
-    [SerializeField] private float _gravity = 9.8f;
     [SerializeField] private float _angle = 90f;
     [SerializeField] private float _rayDistance = 10f;
     [SerializeField] private float _changeDepth = 0.5f;
 
+    private float _gravity;
     private int _layerGround;
     
     private PlayerInput _input;
 
     private void Awake()
     {
-        _layerGround = LayerMask.NameToLayer("Ground");
-        
+        _gravity = Physics.gravity.y;
+        _layerGround = LayerMask.GetMask("Ground");
         _input = new PlayerInput(_speedWalk, _speedRun, _sensitivity, _changeDepth);
     }
 
@@ -38,7 +37,7 @@ public sealed class UnitMotor : MonoBehaviour
 
     private void OnEnable()
     {
-        float gravityForce = default;
+        float gravity = default;
         float xRotation = default;
         float depth = default;
         float speed = default;
@@ -46,16 +45,17 @@ public sealed class UnitMotor : MonoBehaviour
         Transform t = transform;
 
         _input.onInputMove
-            .Where(vector => vector != Vector2.zero)
             .Subscribe(value =>
             {
                 Vector3 movement = t.forward * value.y * speed + t.right * value.x * speed;
                 Vector3 next = t.position + movement * Time.deltaTime;
                 Ray ray = new Ray { origin = next, direction = Vector3.down };
 
-                if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, 1 << _layerGround))
+                if (Physics.Raycast(ray, out RaycastHit hit, _rayDistance, _layerGround))
                 {
-                    if (t.position.y + hit.point.y < depth)
+                    float waterDepth = _water.position.y + hit.point.y;
+
+                    if (waterDepth < depth)
                     {
                         return;
                     }
@@ -63,14 +63,14 @@ public sealed class UnitMotor : MonoBehaviour
                 
                 if (!_characterController.isGrounded)
                 {
-                    gravityForce -= _gravity * Time.deltaTime;
+                    gravity += _gravity * Time.deltaTime;
                 }
                 else
                 {
-                    gravityForce = -_gravity;
+                    gravity = 0f;
                 }
 
-                movement.y = gravityForce;
+                movement.y = gravity;
                 
                 _characterController.Move(movement * Time.deltaTime);
             })
@@ -93,24 +93,7 @@ public sealed class UnitMotor : MonoBehaviour
             .Subscribe(value =>
             {
                 _depthText.text = $"Depth: {value:F}";
-
-                if (value < 0.05f && value > -0.05f)
-                {
-                    depth = Depth;
-                }
-                else
-                {
-                    if (value > 0f)
-                    {
-                        depth = Depth + value;
-                    }
-                    else
-                    {
-                        depth = value;
-                    }
-                }
-                
-                Debug.Log(depth);
+                depth = value;
             })
             .AddTo(_input.lifetimeDisposable)
             .AddTo(this);
